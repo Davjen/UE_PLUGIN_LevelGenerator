@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "LevelCreator",
+	"Description": "From a txt or a texture create a map",
+	"Category": "Other",
+	"CreatedBy": "Davjen",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "LevelCreator",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
