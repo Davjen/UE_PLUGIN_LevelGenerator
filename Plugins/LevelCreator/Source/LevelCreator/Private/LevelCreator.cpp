@@ -22,10 +22,11 @@
 #include "IContentBrowserSingleton.h"
 #include "PropertyCustomizationHelpers.h"
 #include "Widgets/SViewport.h"
-#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
+#include "WorkspaceMenuStructure.h"
 #include "Misc/FileHelper.h"
 #include "ImageUtils.h"
+
 
 static const FName MapGeneratorTab("MapGeneratorTab");
 
@@ -105,35 +106,37 @@ void FLevelCreatorModule::LevelInitFromTxT(const FString& Path)
 	World->MarkPackageDirty();
 }
 
-bool FLevelCreatorModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+//bool FLevelCreatorModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+//{
+//	if (FParse::Command(&Cmd, TEXT("InitWorld")))
+//	{
+//		FString Path = FParse::Token(Cmd, true);
+//		UE_LOG(LogTemp, Warning, TEXT("path: %s"), *Path);
+//
+//		LevelInitFromTxT(Path);
+//		return true;
+//	}
+//	if (FParse::Command(&Cmd, TEXT("InitWorldpng")))
+//	{
+//		FString Path = FParse::Token(Cmd, true);
+//		UE_LOG(LogTemp, Warning, TEXT("path: %s"), *Path);
+//
+//		//LevelInitFromPng(Path);
+//		return true;
+//	}
+//	return false;
+//}
+
+void FLevelCreatorModule::LevelInitFromPng(const FString& TextureMapPath, const FString& WallBP, const FString& DestructibleWallBP, const FString& FloorBP )
 {
-	if (FParse::Command(&Cmd, TEXT("InitWorld")))
-	{
-		FString Path = FParse::Token(Cmd, true);
-		UE_LOG(LogTemp, Warning, TEXT("path: %s"), *Path);
 
-		LevelInitFromTxT(Path);
-		return true;
-	}
-	if (FParse::Command(&Cmd, TEXT("InitWorldpng")))
-	{
-		FString Path = FParse::Token(Cmd, true);
-		UE_LOG(LogTemp, Warning, TEXT("path: %s"), *Path);
-
-		LevelInitFromPng(Path);
-		return true;
-	}
-	return false;
-}
-
-void FLevelCreatorModule::LevelInitFromPng(const FString& Path)
-{
-
+	Paths.Add(FString("Wall"), WallBP);
+	Paths.Add(FString("DestruWall"), DestructibleWallBP);
 	UWorld* World = FLevelCreatorModule::CreateWorld();
 
 	World->Modify();
 
-	UTexture2D* Texture = FImageUtils::ImportFileAsTexture2D(Path);
+	UTexture2D* Texture = FImageUtils::ImportFileAsTexture2D(TextureMapPath);
 	int32 PlatformSizeX = Texture->GetSizeX();
 	int32 PlatformSizeY = Texture->GetSizeY();
 	int32 StartX = 0;
@@ -168,11 +171,20 @@ void FLevelCreatorModule::LevelInitFromPng(const FString& Path)
 AActor* FLevelCreatorModule::CreateWall(const int32 X, const int32 Y, UWorld* InWorld)
 {
 	UE_LOG(LogTemp, Warning, TEXT("CREATING A WALL"));
-	FString WallPath = FString("StaticMesh'/Engine/BasicShapes/Cube.Cube'");
-	UStaticMesh* StaticMesh = LoadObject<UStaticMesh>(nullptr, *WallPath);
-	if (StaticMesh)
+	FString WallPathString;
+	if (Paths.Find("Wall")) 
 	{
-		AStaticMeshActor* Wall = InWorld->SpawnActor<AStaticMeshActor>();
+		UE_LOG(LogTemp, Warning, TEXT("path %s"),**Paths.Find("Wall"))
+		WallPathString = *Paths.Find("Wall");
+	}
+	else
+	{
+		WallPathString = FString("StaticMesh'/Engine/BasicShapes/Cube.Cube'");
+	}
+	UBlueprint* Bp = LoadObject<UBlueprint>(nullptr, *WallPathString);
+	if (Bp && Bp->GeneratedClass->IsChildOf<AActor>())
+	{
+		AActor* Wall = InWorld->SpawnActor<AActor>(Bp->GeneratedClass);
 		FVector Position;
 		FTransform WallTransform;
 		if (Wall->GetRootComponent())
@@ -180,7 +192,6 @@ AActor* FLevelCreatorModule::CreateWall(const int32 X, const int32 Y, UWorld* In
 			Position = FVector(X, Y, Wall->GetActorRelativeScale3D().Z * 50);
 			WallTransform.AddToTranslation(Position);
 			Wall->SetActorTransform(WallTransform);
-			Wall->GetStaticMeshComponent()->SetStaticMesh(StaticMesh);
 			return Wall;
 		}
 	}
@@ -191,8 +202,15 @@ AActor* FLevelCreatorModule::CreateWall(const int32 X, const int32 Y, UWorld* In
 AActor* FLevelCreatorModule::CreateDamageableWall(const int32 X, const int32 Y, UWorld* InWorld)
 {
 	UE_LOG(LogTemp, Warning, TEXT("CREATING A DamageableWALL"));
-
-	FString DestruWallPath = FString("Blueprint'/Game/DamageableWall.DamageableWall'");
+	FString DestruWallPath;
+	if (Paths.Find("DestruWall"))
+	{
+		DestruWallPath = * Paths.Find("DestruWall");
+	}
+	else
+	{
+		DestruWallPath = FString("StaticMesh'/Engine/BasicShapes/Sphere.Sphere'");
+	}
 	UBlueprint* Bp = LoadObject<UBlueprint>(nullptr, *DestruWallPath);
 	if (Bp && Bp->GeneratedClass->IsChildOf<AActor>())
 	{
@@ -210,6 +228,8 @@ AActor* FLevelCreatorModule::CreateDamageableWall(const int32 X, const int32 Y, 
 	}
 	return nullptr;
 }
+
+
 
 //void FLevelCreatorModule::DestroyAll()
 //{
@@ -255,6 +275,7 @@ FReply FLevelCreatorModule::OnGenerateClick()
 	//DestroyAll();
 	//UE_LOG(LogTemp, Warning, TEXT("%s"), *Result[0]);
 	//UWorld* GenWorld = FLevelCreatorModule::CreateWorld();
+	FLevelCreatorModule::LevelInitFromPng(FPaths::ConvertRelativePathToFull(Result[0]),WallPath.ObjectPath.ToString(), DestructibleWallPath.ObjectPath.ToString(),FloorPath.ObjectPath.ToString());
 	//Procedural.ParseOnWorld(GenWorld, WallPath.ObjectPath.ToString(), DestructibleWallPath.ObjectPath.ToString(), FloorPath.ObjectPath.ToString(), FPaths::ConvertRelativePathToFull(Result[0]));
 	return FReply::Handled();
 }
@@ -265,93 +286,84 @@ TSharedRef<SDockTab> FLevelCreatorModule::CreateMapGeneratorWindow(const FSpawnT
 	MainWindow = SNew(SDockTab)
 		.TabRole(ETabRole::MajorTab)
 		[
-			SNew(SSplitter).Orientation(Orient_Horizontal)
-			+ SSplitter::Slot().Value(0.25f)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()
-		.HAlign(EHorizontalAlignment::HAlign_Center)
-		.VAlign(EVerticalAlignment::VAlign_Center)
-		[
-			SNew(STextBlock)
+				SNew(SSplitter).Orientation(Orient_Horizontal)
+				+ SSplitter::Slot().Value(0.25f)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight()
+					[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth()
+			.HAlign(EHorizontalAlignment::HAlign_Center)
+			.VAlign(EVerticalAlignment::VAlign_Center)
+			[
+				SNew(STextBlock)
 
-			.Text(FText::FromString(TEXT("Default Wall")))
-		]
-	+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
-		[
-			SNew(SObjectPropertyEntryBox)
-			.AllowedClass(UBlueprint::StaticClass())
-		.ObjectPath_Lambda([this]()->FString {return WallPath.GetAsset()->GetPathName(); })
-		.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {WallPath = Data; })
-		.ThumbnailPool(MyThumbnailPool)
-		.DisplayThumbnail(true)
-		]
-		]
-	+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()
-		.HAlign(EHorizontalAlignment::HAlign_Center)
-		.VAlign(EVerticalAlignment::VAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(FText::FromString(TEXT("Destructible Wall")))
-		]
-	+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
-		[
-			SNew(SObjectPropertyEntryBox)
-			.AllowedClass(UBlueprint::StaticClass())
-		.ObjectPath_Lambda([this]()->FString {return DestructibleWallPath.GetAsset()->GetPathName(); })
-		.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {DestructibleWallPath = Data; })
-		.ThumbnailPool(MyThumbnailPool)
-		.DisplayThumbnail(true)
-		]
+				.Text(FText::FromString(TEXT("Default Wall")))
+			]
+		+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
+			[
+				SNew(SObjectPropertyEntryBox)
+				.AllowedClass(UBlueprint::StaticClass())
+			.ObjectPath_Lambda([this]()->FString {return WallPath.GetAsset()->GetPathName(); })
+			.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {WallPath = Data; })
+			.ThumbnailPool(MyThumbnailPool)
+			.DisplayThumbnail(true)
+			]
+			]
+		+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth()
+			.HAlign(EHorizontalAlignment::HAlign_Center)
+			.VAlign(EVerticalAlignment::VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(TEXT("Destructible Wall")))
+			]
+		+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
+			[
+				SNew(SObjectPropertyEntryBox)
+				.AllowedClass(UBlueprint::StaticClass())
+			.ObjectPath_Lambda([this]()->FString {return DestructibleWallPath.GetAsset()->GetPathName(); })
+			.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {DestructibleWallPath = Data; })
+			.ThumbnailPool(MyThumbnailPool)
+			.DisplayThumbnail(true)
+			]
 
-		]
-	+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()
-		.HAlign(EHorizontalAlignment::HAlign_Center)
-		.VAlign(EVerticalAlignment::VAlign_Center)
-		[
-			SNew(STextBlock).Text(FText::FromString(TEXT("Floor")))
-		]
-	+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
-		[
-			SNew(SObjectPropertyEntryBox)
-			.AllowedClass(UBlueprint::StaticClass())
-		.ObjectPath_Lambda([this]()->FString {return FloorPath.GetAsset()->GetPathName(); })
-		.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {FloorPath = Data; })
-		.ThumbnailPool(MyThumbnailPool)
-		.DisplayThumbnail(true)
-		]
-		]
-	+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SButton)
-			.Text(FText::FromString(TEXT("Select Texture")))
-		.OnClicked(FOnClicked::CreateRaw(this, &FLevelCreatorModule::OnSelectPath))
-		/*.OnPathPicked(SDirectoryPicker::FOnDirectoryChanged::CreateRaw(this, &FCustomViewportModule::DirectoryChanged))*/
-		]
-	+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SButton)
-			.Text(FText::FromString(TEXT("Update Preview")))
-		.OnClicked(FOnClicked::CreateRaw(this, &FLevelCreatorModule::OnUpdateClick))
-		]
-	+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SButton).Text(FText::FromString(TEXT("Generate Level")))
-			.OnClicked(FOnClicked::CreateRaw(this, &FLevelCreatorModule::OnGenerateClick))
-		]
-		]
-	+ SSplitter::Slot()
-		[
-		]
+			]
+		+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth()
+			.HAlign(EHorizontalAlignment::HAlign_Center)
+			.VAlign(EVerticalAlignment::VAlign_Center)
+			[
+				SNew(STextBlock).Text(FText::FromString(TEXT("Floor")))
+			]
+		+ SHorizontalBox::Slot().HAlign(EHorizontalAlignment::HAlign_Right).Padding(0, 0, 10, 0)
+			[
+				SNew(SObjectPropertyEntryBox)
+				.AllowedClass(UBlueprint::StaticClass())
+			.ObjectPath_Lambda([this]()->FString {return FloorPath.GetAsset()->GetPathName(); })
+			.OnObjectChanged_Lambda([this](const FAssetData& Data)->void {FloorPath = Data; })
+			.ThumbnailPool(MyThumbnailPool)
+			.DisplayThumbnail(true)
+			]
+			]
+		+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SButton)
+				.Text(FText::FromString(TEXT("Select Texture")))
+			.OnClicked(FOnClicked::CreateRaw(this, &FLevelCreatorModule::OnSelectPath))
+			/*.OnPathPicked(SDirectoryPicker::FOnDirectoryChanged::CreateRaw(this, &FCustomViewportModule::DirectoryChanged))*/
+			]
+		+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SButton).Text(FText::FromString(TEXT("Generate Level")))
+				.OnClicked(FOnClicked::CreateRaw(this, &FLevelCreatorModule::OnGenerateClick))
+			]
+			]
 		];
 	return MainWindow.ToSharedRef();
 

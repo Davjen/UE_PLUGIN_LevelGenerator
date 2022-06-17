@@ -15,8 +15,8 @@ public:
 	virtual void ShutdownModule() override;
 	UWorld* CreateWorld();
 	void LevelInitFromTxT(const FString& Path);
-	void LevelInitFromPng(const FString& Path);
-	virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
+	void LevelInitFromPng(const FString& TextureMapPath, const FString& WallBP, const FString& DestructibleWallBP, const FString& FloorBP);
+	//virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 	AActor* CreateWall(const int32 X, const int32 Y, UWorld* InWorld);
 	AActor* CreateDamageableWall(const int32 X, const int32 Y, UWorld* InWorld);
 	void OpenFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, TArray<FString>& OutFileNames);
@@ -27,7 +27,8 @@ public:
 	FReply OnGenerateClick();
 	TSharedRef<SDockTab> CreateMapGeneratorWindow(const FSpawnTabArgs& TabArgs);
 	TMap<FColor, CreateObj> MapCreatorFunctions;
-
+	TMap<FString, FString> Paths;
+	TArray<FString>Result;
 	TSharedPtr<FAssetThumbnailPool> MyThumbnailPool;
 	FString MapPath;
 	FAssetData WallPath;
